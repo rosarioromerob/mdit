@@ -1,0 +1,26 @@
+//LED Pins
+set 2 LED pins in the right-side arrangement, rightLeds
+set 2 LED pins in the left-side arrangement, leftLeds
+define the length of both arrangements to 2
+
+//LED matrix
+set DIN pin
+set CS pin
+set CLK pin
+
+
+//servo
+set servo object
+set the initial position of the servo to 0
+set the rotation angle of the servo 
+set the rotation speed of the servo
+
+void
+
+loop
+if x-axis value is less than 200
+  make the servo sweep 90 degrees in the opposite direction
+  
+Al presionar DERECHA: El servo realiza un barrido de
+Al presionar IZQUIERDA: El servo realiza un barrido de 
+Al presionar INICIO (Reset): El servo vuelve al centro 
