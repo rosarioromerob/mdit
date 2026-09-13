@@ -1,0 +1,72 @@
+SETUP:
+    pins for the LED matrix (DIN, CLK, CS)
+    light sensor pin, threshold = 400 (how bright counts as "bright")
+    left button, right button, reset button (pulled up, they read LOW when pressed)
+    indicator LEDs: leftA, leftB, rightA, rightB
+    servo on servoPin, starts centered at 90°
+    sweeping = false, direction = 0
+    sweep range: 0 to 180
+
+    icons ready to draw in the matrix: a centered dot (idle mode), a left arrow, a right arrow
+
+FUNCTION isPressed(pin):
+    IF pin is LOW:
+        wait 50ms so we're not fooled by noise
+        IF it's still LOW:
+            yep, that's a press
+    otherwise, nothing happened
+
+FUNCTION drawPattern(pattern):
+    push each of the 8 rows onto the matrix
+
+FUNCTION goToCenter():
+    stop sweeping, direction back to 0
+    servo back to 90°
+    all LEDs off
+    wake up the matrix, draw the centered dot
+
+BOOT UP:
+    start serial
+    kill the LEDs right away so nothing flickers on
+    set buttons to pull-up mode
+    give it half a second to settle down
+    turn on the matrix, dim it, clear it
+    attach the servo
+    call goToCenter()
+
+MAIN LOOP (runs forever):
+    check the light level
+
+    IF it's bright enough:
+
+        IF reset is pressed:
+            goToCenter()
+            brief pause
+
+        ELSE IF right button is pressed:
+            start sweeping, direction = -1
+            only allowed between 0° and 90°
+            left LEDs on, right LEDs off
+            draw the left arrow
+            brief pause
+
+        ELSE IF left button is pressed:
+            start sweeping, direction = +1
+            only allowed between 90° and 180°
+            right LEDs on, left LEDs off
+            draw the right arrow
+            brief pause
+
+        IF still sweeping:
+            move the servo one step in its direction
+            IF it reaches the bottom of its range:
+                lock it there, flip direction to +1
+            ELSE IF it reaches the top:
+                lock it there, flip direction to -1
+            send that position to the servo
+            tiny pause to control how fast it sweeps
+
+    ELSE (too dark):
+        stop sweeping
+        clear the matrix and put it to sleep
+        turn off every LED
