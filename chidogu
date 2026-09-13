@@ -1,0 +1,190 @@
+#include <LedControl.h>
+#include <Servo.h>
+
+// PINES DE LA LED 8x8 
+const int DIN_PIN = 11; 
+const int CLK_PIN = 13; 
+const int CS_PIN  = 10; 
+
+LedControl lc = LedControl(DIN_PIN, CLK_PIN, CS_PIN, 1);
+
+// PIN FOTORESISTENCIA (LDR)
+const int ldrPin = A0; 
+int ldrValue     = 0;
+int threshold    = 400; 
+
+// PINES DE CONTROL
+const int btnLeftPin  = 2;  
+const int btnRightPin = 3;  
+const int buttonPin   = 8;  
+const int servoPin    = 9;  
+
+// PINES DE LEDS INDICADORES 
+const int ledLeftA  = 4; 
+const int ledLeftB  = 6; 
+const int ledRightA = 5; 
+const int ledRightB = 7; 
+
+//  VARIABLES DE ESTADO 
+Servo myservo;             
+int pos = 90;            
+int stepDir = 0;         
+bool isSweeping = false; 
+
+int minSweepLimit = 0;
+int maxSweepLimit = 180;
+
+// Patrones Gráficos 8x8
+const byte iconCenter[8] = {
+0b00000000, 
+0b00111100, 
+0b01000010, 
+0b01011010,
+0b01011010, 
+0b01000010, 
+0b00111100, 
+0b00000000
+};
+
+const byte arrowLeft[8] = {
+0b00010000,
+0b00110000, 
+0b01110000, 
+0b11111111,
+0b11111111,
+0b01110000, 
+0b00110000, 
+0b00010000
+};
+
+const byte arrowRight[8] = {
+0b00001000, 
+0b00001100, 
+0b00001110, 
+0b11111111,
+0b11111111, 
+0b00001110, 
+0b00001100, 
+0b00001000
+};
+
+bool readButtonDebounced(int pin) {
+  if (digitalRead(pin) == LOW) {
+    delay(50); 
+    if (digitalRead(pin) == LOW) {
+      return true; 
+    }
+  }
+  return false;
+}
+
+void drawPattern(const byte pattern[8]) {
+  for (int row = 0; row < 8; row++) {
+    lc.setRow(0, row, pattern[row]);
+  }
+}
+
+void resetToCenter() {
+  isSweeping = false;
+  stepDir = 0;
+  pos = 90;
+  myservo.write(pos);
+
+  digitalWrite(ledLeftA, LOW);
+  digitalWrite(ledLeftB, LOW);
+  digitalWrite(ledRightA, LOW);
+  digitalWrite(ledRightB, LOW);
+
+  lc.shutdown(0, false);
+  drawPattern(iconCenter);
+}
+
+void setup() {
+  // Inicializar comunicación serial
+  Serial.begin(9600);
+  pinMode(btnLeftPin, INPUT_PULLUP);
+  pinMode(btnRightPin, INPUT_PULLUP);
+  pinMode(buttonPin, INPUT_PULLUP); 
+
+  delay(500); 
+
+  //Matriz and servo
+  lc.shutdown(0, false);       
+  lc.setIntensity(0, 4);       
+  lc.clearDisplay(0);          
+
+  myservo.attach(servoPin);
+  resetToCenter();
+}
+
+void loop() {
+  ldrValue = analogRead(ldrPin);
+
+  if (ldrValue > threshold) {
+
+    //  1: RESET / CENTRO
+    if (readButtonDebounced(buttonPin)) {
+      resetToCenter();
+      delay(150); 
+    }
+    //  2: RIGHT BUTTON -> Enciende LEDs IZQUIERDOS (4 y 6)
+    else if (readButtonDebounced(btnRightPin)) { 
+      isSweeping = true;
+      stepDir = -1; 
+      minSweepLimit = 0;
+      maxSweepLimit = 90;
+      
+      digitalWrite(ledLeftA, HIGH);  
+      digitalWrite(ledLeftB, HIGH); 
+      digitalWrite(ledRightA, LOW);
+      digitalWrite(ledRightB, LOW);
+      
+      drawPattern(arrowLeft);
+      delay(150); 
+    } 
+    //3: LEFT BUTTON -> Enciende LEDs DERECHOS (5 y 7)
+    else if (readButtonDebounced(btnLeftPin)) { 
+      isSweeping = true;
+      stepDir = 1;  
+      minSweepLimit = 90;
+      maxSweepLimit = 180;
+      
+      digitalWrite(ledRightA, HIGH); 
+      digitalWrite(ledRightB, HIGH);
+      digitalWrite(ledLeftA, LOW);
+      digitalWrite(ledLeftB, LOW);
+      
+      drawPattern(arrowRight);
+      delay(150); 
+    }
+
+    // 4: BARRIDO DEL SERVO
+    if (isSweeping) {
+      pos += stepDir;
+
+      if (pos <= minSweepLimit) {
+        pos = minSweepLimit;
+        stepDir = 1; 
+      } 
+      else if (pos >= maxSweepLimit) {
+        pos = maxSweepLimit;
+        stepDir = -1; 
+      }
+
+      myservo.write(pos);
+      delay(5); 
+    }
+  } 
+  else {
+
+    // MODO REPOSO (DARK)
+    isSweeping = false;
+    lc.clearDisplay(0);
+    lc.shutdown(0, true);
+    
+    digitalWrite(ledLeftA, LOW);
+    digitalWrite(ledLeftB, LOW);
+    digitalWrite(ledRightA, LOW);
+    digitalWrite(ledRightB, LOW);
+  }
+}
