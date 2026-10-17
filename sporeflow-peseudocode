@@ -20,7 +20,7 @@ SETUP
   register the three LED strips
   set brightness to 40
   clear all LEDs
-  print "System ready"
+  print "MYCELIUM READY"
 
 
 LOOP
