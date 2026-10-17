@@ -78,7 +78,7 @@ void setup() {
   FastLED.clear();
   FastLED.show();
 
-  Serial.println("System ready - motor OFF");
+  Serial.println("MYCELIUM READY - SPORES NOT MOVING");
 }
 
 // ORIGINAL NON-BLOCKING MYCELIUM ANIMATION
