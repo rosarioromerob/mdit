@@ -1,0 +1,177 @@
+#include <FastLED.h>
+
+// LED STRIP PINS AND COUNTS
+#define STRIP_1_PIN   3
+#define STRIP_2_PIN   4
+#define STRIP_3_PIN   9
+
+#define NUM_LEDS_1    24
+#define NUM_LEDS_2    28
+#define NUM_LEDS_3    30
+
+// MUSHROOM MODULE PINS
+// INPUT_PULLUP: LOW = Pressed
+#define MUSHROOM_PIN1 6
+#define MUSHROOM_PIN2 7
+#define MUSHROOM_PIN3 8
+
+// MOTOR CONTROL PIN (DRV8833 AIN1)
+#define MOTOR_PIN 10
+
+// MOTOR DELAY TIME (Must hold for more than 2 seconds)
+const unsigned long HOLD_DURATION = 2000; 
+
+// Motor state tracking
+unsigned long allPressedStartTime = 0;
+bool motorRunning = false;
+bool timerStarted = false;
+
+// LED ARRAYS
+CRGB leds1[NUM_LEDS_1];
+CRGB leds2[NUM_LEDS_2];
+CRGB leds3[NUM_LEDS_3];
+
+// STRIP 1 ANIMATION
+int step1 = 0;
+bool animating1 = false;
+unsigned long last1 = 0;
+
+// STRIP 2 ANIMATION
+int step2 = 0;
+bool animating2 = false;
+unsigned long last2 = 0;
+
+// STRIP 3 ANIMATION
+int step3 = 0;
+bool animating3 = false;
+unsigned long last3 = 0;
+
+// MOTOR CONTROL
+void setMotor(bool on) {
+  digitalWrite(MOTOR_PIN, on ? HIGH : LOW);
+}
+
+void setup() {
+  Serial.begin(9600);
+
+  // Mushroom inputs
+  pinMode(MUSHROOM_PIN1, INPUT_PULLUP);
+  pinMode(MUSHROOM_PIN2, INPUT_PULLUP);
+  pinMode(MUSHROOM_PIN3, INPUT_PULLUP);
+
+  // Motor OFF at startup (Pin 10)
+  pinMode(MOTOR_PIN, OUTPUT);
+  digitalWrite(MOTOR_PIN, LOW);
+
+  // Initialise LED strips
+  FastLED.addLeds<WS2812, STRIP_1_PIN, RGB>(
+    leds1, NUM_LEDS_1
+  );
+  FastLED.addLeds<WS2812, STRIP_2_PIN, RGB>(
+    leds2, NUM_LEDS_2
+  );
+  FastLED.addLeds<WS2812, STRIP_3_PIN, RGB>(
+    leds3, NUM_LEDS_3
+  );
+
+  FastLED.setBrightness(40);
+  FastLED.clear();
+  FastLED.show();
+
+  Serial.println("System ready - motor OFF");
+}
+
+// ORIGINAL NON-BLOCKING MYCELIUM ANIMATION
+void updateMyceliumNonBlocking(
+  CRGB* leds,
+  int numLeds,
+  bool pressed,
+  int &stepIdx,
+  bool &isAnimating,
+  unsigned long &lastTime
+) {
+  if (pressed) {
+    isAnimating = true;
+  }
+
+  if (isAnimating) {
+    if (millis() - lastTime >= 35) {
+      lastTime = millis();
+
+      // First half: Slide down
+      if (stepIdx < numLeds) {
+        int i = numLeds - 1 - stepIdx;
+        leds[i] = CHSV(70, 160, 255);
+      }
+      // Second half: Slide back up
+      else {
+        int i = stepIdx - numLeds;
+        leds[i] = CHSV(70, 248, 221);
+      }
+
+      stepIdx++;
+
+      if (stepIdx >= 2 * numLeds) {
+        stepIdx = 0;
+
+        if (!pressed) {
+          isAnimating = false;
+          fill_solid(leds, numLeds, CRGB::Black);
+        }
+      }
+    }
+  } else {
+    fill_solid(leds, numLeds, CRGB::Black);
+    stepIdx = 0;
+  }
+}
+
+void loop() {
+  // Read mushroom modules
+  bool m1 = (digitalRead(MUSHROOM_PIN1) == LOW);
+  bool m2 = (digitalRead(MUSHROOM_PIN2) == LOW);
+  bool m3 = (digitalRead(MUSHROOM_PIN3) == LOW);
+
+  // All three must be pressed simultaneously
+  bool allPressed = m1 && m2 && m3;
+
+  // MOTOR CONTROL LOGIC
+  if (allPressed) {
+    if (!timerStarted) {
+      // Start the timer the moment all three are pressed together
+      allPressedStartTime = millis();
+      timerStarted = true;
+    } 
+    else if (!motorRunning && (millis() - allPressedStartTime >= HOLD_DURATION)) {
+      // If held continuously for > 2 seconds, start the motor
+      motorRunning = true;
+      setMotor(true);
+      Serial.println("All three held for 2s - SPORES FLY");
+    }
+  } else {
+    // If ANY mushroom is released, reset everything and stop the motor immediately
+    if (motorRunning) {
+      setMotor(false);
+      motorRunning = false;
+      Serial.println("Mushroom released - SPORES STOP");
+    }
+    timerStarted = false;
+  }
+
+  // ORIGINAL INDEPENDENT LED STRIP CONTROL
+  updateMyceliumNonBlocking(
+    leds1, NUM_LEDS_1, m1, step1, animating1, last1
+  );
+
+  updateMyceliumNonBlocking(
+    leds2, NUM_LEDS_2, m2, step2, animating2, last2
+  );
+
+  updateMyceliumNonBlocking(
+    leds3, NUM_LEDS_3, m3, step3, animating3, last3
+  );
+
+  FastLED.show();
+
+  delay(20);
+}
