@@ -1,1 +1,80 @@
+VARIABLES:
+  3 strip pins:        3, 4, 5
+  3 strip lengths:     24, 28, 30
+  3 mushroom pins:     6, 7, 8   (pressed = LOW)
+  1 motor pin:         10
+  hold time:         2000 ms
+  animation speed:   35 ms per step
+  brightness:        40
 
+VARIABLES
+  for each strip: step = 0, animating = false, lastTime = 0
+  motorRunning = false
+  timerStarted = false
+  allPressedStartTime = 0
+
+
+SETUP 
+  set mushroom pins as pull-up inputs
+  set motor pin as output, turn motor OFF
+  register the three LED strips
+  set brightness to 40
+  clear all LEDs
+  print "System ready"
+
+
+LOOP
+
+  1. READ BUTTONS
+     m1, m2, m3 = true if that mushroom is pressed
+     allPressed = m1 AND m2 AND m3
+
+  2. MOTOR LOGIC
+     if allPressed:
+        if timer not started:
+           save current time as start time
+           timerStarted = true
+        else if motor not running AND (now - start time) >= 2000:
+           motorRunning = true
+           turn motor ON
+           print "SPORES FLY"
+     else:
+        if motor is running:
+           turn motor OFF
+           motorRunning = false
+           print "SPORES STOP"
+        timerStarted = false
+
+  3. LED ANIMATION (repeat for each strip with its own mushroom)
+     call updateMycelium(strip, length, pressed, step, animating, lastTime)
+
+  4. show all LEDs
+  5. wait 20 ms
+
+
+FUNCTION updateMycelium(strip, length, pressed, step, animating, lastTime)
+
+  if pressed:
+     animating = true
+
+  if animating:
+     if (now - lastTime) >= 35 ms:
+        lastTime = now
+
+        if step < length:
+           light the LED at position (length - 1 - step)
+           in light yellow-green        // slide down
+        else:
+           light the LED at position (step - length)
+           in darker, richer yellow-green   // slide back up
+
+        step = step + 1
+
+        if step >= 2 * length:          // full cycle done
+           step = 0
+           if not pressed:
+              animating = false
+              turn the whole strip off
+  else:
+     turn the whole strip off
+     step = 0
